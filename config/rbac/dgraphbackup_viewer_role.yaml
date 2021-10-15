@@ -1,0 +1,20 @@
+# permissions for end users to view dgraphbackups.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dgraphbackup-viewer-role
+rules:
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackups/status
+  verbs:
+  - get

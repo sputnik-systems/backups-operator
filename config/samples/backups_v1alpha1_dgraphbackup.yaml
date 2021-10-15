@@ -1,0 +1,10 @@
+apiVersion: backups.sputnik.systems/v1alpha1
+kind: DgraphBackup
+metadata:
+  name: dgraph-1634289801
+spec:
+  adminUrl: http://dgraph-dgraph-alpha:8080/admin
+  destination: minio://storage.yandexcloud.net/sputnik-systems-backups/dgraph/staging-services
+  region: ru-central1
+  secrets:
+    - dgraph-yandex-cloud-s3
