@@ -2,6 +2,7 @@ package dgraph
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"path"
 	"strings"
@@ -66,6 +67,10 @@ func Export(ctx context.Context, rc client.Client, bs *backupsv1alpha1.DgraphBac
 }
 
 func DeleteExport(ctx context.Context, b *backupsv1alpha1.DgraphBackup, creds map[string]string) error {
+	if len(b.Status.ExportResponse.ExportedFiles) == 0 {
+		return errors.New("export info not exists")
+	}
+
 	opts := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}

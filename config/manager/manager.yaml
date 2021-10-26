@@ -8,7 +8,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: cm
   namespace: system
   labels:
     control-plane: controller-manager
@@ -29,7 +29,8 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: controller:latest
+        image: sputniksystemsorg/backups-operator:latest
+        imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

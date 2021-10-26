@@ -1,0 +1,24 @@
+# permissions for end users to edit dgraphbackupschedules.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dgraphbackupschedule-editor-role
+rules:
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackupschedules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackupschedules/status
+  verbs:
+  - get

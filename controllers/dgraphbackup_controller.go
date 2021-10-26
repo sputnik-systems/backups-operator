@@ -51,10 +51,9 @@ type DgraphBackupReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// _ = log.FromContext(ctx)
-
-	// your logic here
 	l := log.FromContext(ctx)
+
+	l.Info("started resource reconclie")
 
 	b := &backupsv1alpha1.DgraphBackup{}
 	err := r.Get(ctx, req.NamespacedName, b)
@@ -71,14 +70,10 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		creds, err := factory.GetCredentials(ctx, r.Client, b.Spec.Secrets, b.Namespace)
 		if err != nil {
 			l.Error(err, "failed to get dgraph export creds")
-
-			return ctrl.Result{}, err
 		}
 
 		if err := dgraph.DeleteExport(ctx, b, creds); err != nil {
 			l.Error(err, "failed to delete backup from remote storage")
-
-			return ctrl.Result{}, err
 		}
 
 		if err := finalize.RemoveFinalizeObjByName(ctx, r.Client, b, b.Name, b.Namespace); err != nil {
@@ -136,6 +131,8 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		l.Info("backup created succesfully")
 	}
+
+	l.Info("finished resource reconclie")
 
 	return ctrl.Result{}, nil
 }
