@@ -32,3 +32,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackupschedules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackupschedules/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - dgraphbackupschedules/status
+  verbs:
+  - get
+  - patch
+  - update
