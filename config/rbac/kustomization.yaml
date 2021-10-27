@@ -9,3 +9,5 @@ resources:
 - role_binding.yaml
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
+- secret_read_role.yaml
+- secret_read_role_binding.yaml
