@@ -2,4 +2,6 @@
 resources:
 - backups_v1alpha1_dgraphbackup.yaml
 - backups_v1alpha1_dgraphbackupschedule.yaml
+- backups_v1alpha1_clickhousebackup.yaml
+- backups_v1alpha1_clickhousebackupschedule.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
