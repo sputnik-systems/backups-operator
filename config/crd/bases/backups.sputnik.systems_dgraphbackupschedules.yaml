@@ -16,7 +16,15 @@ spec:
     singular: dgraphbackupschedule
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: backup objects creation schedule
+      jsonPath: .spec.schedule
+      name: Schedule
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DgraphBackupSchedule is the Schema for the dgraphbackupschedules
