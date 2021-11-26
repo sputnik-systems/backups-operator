@@ -9,6 +9,58 @@ rules:
 - apiGroups:
   - backups.sputnik.systems
   resources:
+  - clickhousebackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackups/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackups/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackupschedules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackupschedules/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackupschedules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
   - dgraphbackups
   verbs:
   - create
