@@ -61,6 +61,8 @@ type DgraphBackupStatusExportResonse struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="backup creation phase"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // DgraphBackup is the Schema for the dgraphbackups API
 type DgraphBackup struct {

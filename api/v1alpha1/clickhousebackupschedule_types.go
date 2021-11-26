@@ -41,6 +41,8 @@ type ClickHouseBackupScheduleStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Schedule",type="string",JSONPath=".spec.schedule",description="backup objects creation schedule"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ClickHouseBackupSchedule is the Schema for the clickhousebackupschedules API
 type ClickHouseBackupSchedule struct {
