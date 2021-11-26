@@ -1,0 +1,6 @@
+apiVersion: backups.sputnik.systems/v1alpha1
+kind: ClickHouseBackup
+metadata:
+  name: clickhousebackup-sample
+spec:
+  apiAddress: http://chi-default-default-0-0:7171

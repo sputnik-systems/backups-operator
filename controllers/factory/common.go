@@ -2,6 +2,8 @@ package factory
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -36,11 +38,35 @@ func GetFQDN(rawUrl, ns string) (string, error) {
 	}
 
 	hostname := u.Hostname()
-	port := u.Port()
 	if len(strings.Split(hostname, ".")) < 2 {
 		host := []string{hostname, ns, "svc"}
-		u.Host = strings.Join(host, ".") + ":" + port
+		u.Host = strings.Join(host, ".") + ":" + u.Port()
 	}
 
 	return u.String(), nil
+}
+
+func GetUrlWithIP(rawUrl string) (string, error) {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse url: %s", err)
+	}
+
+	ips, err := net.LookupIP(u.Hostname())
+	if err != nil {
+		return "", fmt.Errorf("failed to lookup ips: %s", err)
+	}
+
+	u.Host = ips[0].String() + ":" + u.Port()
+
+	return u.String(), nil
+}
+
+func GetHostname(rawUrl string) (string, error) {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse url: %s", err)
+	}
+
+	return u.Hostname(), nil
 }

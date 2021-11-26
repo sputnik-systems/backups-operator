@@ -1,0 +1,24 @@
+# permissions for end users to edit clickhousebackups.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clickhousebackup-editor-role
+rules:
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - backups.sputnik.systems
+  resources:
+  - clickhousebackups/status
+  verbs:
+  - get
