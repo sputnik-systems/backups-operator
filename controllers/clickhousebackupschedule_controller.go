@@ -85,7 +85,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	if r.isNeedUpdate(ctx, bs) {
+	if bs.IsNeedUpdate(&r.StartedAt) {
 		if err := finalize.AddFinalizer(ctx, r.Client, bs); err != nil {
 			l.Error(err, "failed to add finalizer")
 
@@ -131,18 +131,6 @@ func (r *ClickHouseBackupScheduleReconciler) SetupWithManager(mgr ctrl.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupsv1alpha1.ClickHouseBackupSchedule{}).
 		Complete(r)
-}
-
-func (r *ClickHouseBackupScheduleReconciler) isNeedUpdate(ctx context.Context, bs *backupsv1alpha1.ClickHouseBackupSchedule) bool {
-	if bs.Generation != bs.Status.ActiveGeneration {
-		return true
-	}
-
-	if bs.Status.UpdatedAt.Before(&r.StartedAt) {
-		return true
-	}
-
-	return false
 }
 
 func (r *ClickHouseBackupScheduleReconciler) schedule(ctx context.Context, bs *backupsv1alpha1.ClickHouseBackupSchedule) {

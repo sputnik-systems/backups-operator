@@ -65,3 +65,16 @@ type DgraphBackupScheduleList struct {
 func init() {
 	SchemeBuilder.Register(&DgraphBackupSchedule{}, &DgraphBackupScheduleList{})
 }
+
+// IsNeedUpdate returns true if resource must be updated
+func (s *DgraphBackupSchedule) IsNeedUpdate(startedAt *metav1.Time) bool {
+	if s.Generation != s.Status.ActiveGeneration {
+		return true
+	}
+
+	if s.Status.UpdatedAt.Before(startedAt) {
+		return true
+	}
+
+	return false
+}

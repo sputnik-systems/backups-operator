@@ -18,11 +18,8 @@ package controllers
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
-	"github.com/cenkalti/backoff"
-	kerrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +58,7 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	b := &backupsv1alpha1.ClickHouseBackup{}
 	err := r.Get(ctx, req.NamespacedName, b)
 	if err != nil {
-		if kerrs.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 
@@ -82,7 +79,8 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if b.Status.Phase == "" {
-		if err := r.updateStatusPhase(ctx, b, "Started"); err != nil {
+		b.Status.Phase = "Started"
+		if err := r.Status().Update(ctx, b); err != nil {
 			l.Error(err, "failed update clickhouse backup object")
 
 			return ctrl.Result{}, err
@@ -94,20 +92,20 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 
-		if err := r.updateStatusApiInfo(ctx, b); err != nil {
+		if err := factory.UpdateClickHouseBackupStatusApiInfo(ctx, r.Client, b); err != nil {
 			l.Error(err, "failed to update status api info")
 
 			return ctrl.Result{}, err
 		}
 
-		if err := r.createBackup(ctx, b); err != nil {
+		if err := factory.CreateClickHouseBackup(ctx, r.Client, b); err != nil {
 			l.Error(err, "failed to create backup")
 
 			return ctrl.Result{}, err
 		}
 
 		if b.Status.Phase == "Created" {
-			if err := r.uploadBackup(ctx, b); err != nil {
+			if err := factory.UploadClickHouseBackup(ctx, r.Client, b); err != nil {
 				l.Error(err, "failed to upload backup")
 
 				return ctrl.Result{}, err
@@ -127,121 +125,4 @@ func (r *ClickHouseBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupsv1alpha1.ClickHouseBackup{}).
 		Complete(r)
-}
-
-func (r *ClickHouseBackupReconciler) updateStatus(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) error {
-	return r.Status().Update(ctx, b)
-}
-
-func (r *ClickHouseBackupReconciler) updateStatusPhase(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup, phase string) error {
-	b.Status.Phase = phase
-
-	return r.updateStatus(ctx, b)
-}
-
-func (r *ClickHouseBackupReconciler) updateStatusApiInfo(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) error {
-	var err error
-
-	b.Spec.ApiAddress, err = factory.GetFQDN(b.Spec.ApiAddress, b.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get resource fqdn: %s", err)
-	}
-
-	b.Status.Api.Address, err = factory.GetUrlWithIP(b.Spec.ApiAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get resource ip address: %s", err)
-	}
-
-	b.Status.Api.Hostname, err = factory.GetHostname(b.Spec.ApiAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get resource hostname: %s", err)
-	}
-
-	return r.updateStatus(ctx, b)
-}
-
-func (r *ClickHouseBackupReconciler) createBackup(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) error {
-	if err := r.updateStatusPhase(ctx, b, "Creating"); err != nil {
-		return fmt.Errorf("failed update clickhouse backup object: %s", err)
-	}
-
-	if _, err := clickhouse.CreateBackup(ctx, b); err != nil {
-		if err := r.updateStatusPhase(ctx, b, "Failed"); err != nil {
-			return err
-		}
-
-		return err
-	}
-
-	bo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
-	op := func() error {
-		rows, err := clickhouse.GetStatus(ctx, b)
-		if err != nil {
-			return fmt.Errorf("failed to get backups status: %s", err)
-		}
-
-		if len(rows) > 0 {
-			last := rows[len(rows)-1]
-			switch last.Status {
-			case "error":
-				b.Status.Error = last.Error
-				if err := r.updateStatusPhase(ctx, b, "CreateFailed"); err != nil {
-					return backoff.Permanent(err)
-				}
-
-				return backoff.Permanent(errors.New("clickhouse backup creating failed"))
-			case "success":
-				return r.updateStatusPhase(ctx, b, "Created")
-			default:
-				return fmt.Errorf("clickhouse backup creating operation is \"%s\"", last.Status)
-			}
-		}
-
-		return nil
-	}
-
-	return backoff.Retry(op, bo)
-}
-
-func (r *ClickHouseBackupReconciler) uploadBackup(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) error {
-	if err := r.updateStatusPhase(ctx, b, "Uploading"); err != nil {
-		return fmt.Errorf("failed update clickhouse backup object: %s", err)
-	}
-
-	if _, err := clickhouse.UploadBackup(ctx, b); err != nil {
-		if err := r.updateStatusPhase(ctx, b, "Failed"); err != nil {
-			return err
-		}
-
-		return err
-	}
-
-	bo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
-	op := func() error {
-		rows, err := clickhouse.GetStatus(ctx, b)
-		if err != nil {
-			return fmt.Errorf("failed to get backups status: %s", err)
-		}
-
-		if len(rows) > 0 {
-			last := rows[len(rows)-1]
-			switch last.Status {
-			case "error":
-				b.Status.Error = last.Error
-				if err := r.updateStatusPhase(ctx, b, "UploadFailed"); err != nil {
-					return backoff.Permanent(err)
-				}
-
-				return backoff.Permanent(errors.New("clickhouse backup uploading failed"))
-			case "success":
-				return r.updateStatusPhase(ctx, b, "Completed")
-			default:
-				return fmt.Errorf("clickhouse backup uploading operation is \"%s\"", last.Status)
-			}
-		}
-
-		return nil
-	}
-
-	return backoff.Retry(op, bo)
 }

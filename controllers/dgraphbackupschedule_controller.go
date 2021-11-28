@@ -85,13 +85,7 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if r.isNeedUpdate(ctx, bs) {
-		// if err := r.updateStatusState(ctx, bs, "Started"); err != nil {
-		// 	l.Error(err, "failed update dgraph backup schedule object")
-
-		// 	return ctrl.Result{}, err
-		// }
-
+	if bs.IsNeedUpdate(&r.StartedAt) {
 		if err := finalize.AddFinalizer(ctx, r.Client, bs); err != nil {
 			l.Error(err, "failed to add finalizer")
 
@@ -117,7 +111,6 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		bs.Status.ScheduleID = int(id)
-		// bs.Status.State = "Completed"
 		bs.Status.ActiveGeneration = bs.Generation
 		bs.Status.UpdatedAt = metav1.Now()
 
@@ -138,30 +131,6 @@ func (r *DgraphBackupScheduleReconciler) SetupWithManager(mgr ctrl.Manager) erro
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupsv1alpha1.DgraphBackupSchedule{}).
 		Complete(r)
-}
-
-// func (r *DgraphBackupScheduleReconciler) updateStatusState(ctx context.Context, bs *backupsv1alpha1.DgraphBackupSchedule, state string) error {
-// 	bs.Status.State = state
-//
-// 	return r.Status().Update(ctx, bs)
-// }
-
-// func (r *DgraphBackupScheduleReconciler) updateStatusID(ctx context.Context, bs *backupsv1alpha1.DgraphBackupSchedule, id int) error {
-// 	bs.Status.ScheduleID = id
-//
-// 	return r.Status().Update(ctx, bs)
-// }
-
-func (r *DgraphBackupScheduleReconciler) isNeedUpdate(ctx context.Context, bs *backupsv1alpha1.DgraphBackupSchedule) bool {
-	if bs.Generation != bs.Status.ActiveGeneration {
-		return true
-	}
-
-	if bs.Status.UpdatedAt.Before(&r.StartedAt) {
-		return true
-	}
-
-	return false
 }
 
 func (r *DgraphBackupScheduleReconciler) schedule(ctx context.Context, bs *backupsv1alpha1.DgraphBackupSchedule) {

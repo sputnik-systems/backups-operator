@@ -31,7 +31,7 @@ func GetCredentials(ctx context.Context, rc client.Client, secrets []string, ns 
 	return creds, nil
 }
 
-func GetFQDN(rawUrl, ns string) (string, error) {
+func getFQDN(rawUrl, ns string) (string, error) {
 	u, err := url.Parse(rawUrl)
 	if err != nil {
 		return "", err
@@ -46,7 +46,7 @@ func GetFQDN(rawUrl, ns string) (string, error) {
 	return u.String(), nil
 }
 
-func GetUrlWithIP(rawUrl string) (string, error) {
+func getUrlWithIP(rawUrl string) (string, error) {
 	u, err := url.Parse(rawUrl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse url: %s", err)
@@ -62,7 +62,7 @@ func GetUrlWithIP(rawUrl string) (string, error) {
 	return u.String(), nil
 }
 
-func GetHostname(rawUrl string) (string, error) {
+func getHostname(rawUrl string) (string, error) {
 	u, err := url.Parse(rawUrl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse url: %s", err)
