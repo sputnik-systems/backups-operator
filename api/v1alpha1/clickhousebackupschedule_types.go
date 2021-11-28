@@ -17,7 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -28,13 +31,17 @@ type ClickHouseBackupScheduleSpec struct {
 	// Schedule is schedule info in github.com/robfig/cron supported notation
 	Schedule string `json:"schedule"`
 
+	// Retention is specify how long should to keep backups
+	Retention string `json:"retention,omitempty"`
+
 	// Backup is specify clickhouse backup options
 	Backup ClickHouseBackupSpec `json:"backup"`
 }
 
 // ClickHouseBackupScheduleStatus defines the observed state of ClickHouseBackupSchedule
 type ClickHouseBackupScheduleStatus struct {
-	ScheduleID       int         `json:"scheduleId,omitempty"`
+	ScheduleTaskID   int         `json:"scheduleTaskId,omitempty"`
+	RetentionTaskID  int         `json:"retentionTaskId,omitempty"`
 	ActiveGeneration int64       `json:"activeGeneration,omitempty"`
 	UpdatedAt        metav1.Time `json:"updatedTime,omitempty"`
 }
@@ -66,13 +73,36 @@ func init() {
 	SchemeBuilder.Register(&ClickHouseBackupSchedule{}, &ClickHouseBackupScheduleList{})
 }
 
+func (cr *ClickHouseBackupSchedule) AsOwner() []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		{
+			APIVersion:         cr.APIVersion,
+			Kind:               cr.Kind,
+			Name:               cr.Name,
+			UID:                cr.UID,
+			Controller:         pointer.BoolPtr(true),
+			BlockOwnerDeletion: pointer.BoolPtr(true),
+		},
+	}
+}
+
+func (cr ClickHouseBackupSchedule) Annotations() map[string]string {
+	annotations := make(map[string]string)
+	for annotation, value := range cr.ObjectMeta.Annotations {
+		if !strings.HasPrefix(annotation, "kubectl.kubernetes.io/") {
+			annotations[annotation] = value
+		}
+	}
+	return annotations
+}
+
 // IsNeedUpdate returns true if resource must be updated
-func (s *ClickHouseBackupSchedule) IsNeedUpdate(startedAt *metav1.Time) bool {
-	if s.Generation != s.Status.ActiveGeneration {
+func (cr *ClickHouseBackupSchedule) IsNeedUpdate(startedAt *metav1.Time) bool {
+	if cr.Generation != cr.Status.ActiveGeneration {
 		return true
 	}
 
-	if s.Status.UpdatedAt.Before(startedAt) {
+	if cr.Status.UpdatedAt.Before(startedAt) {
 		return true
 	}
 

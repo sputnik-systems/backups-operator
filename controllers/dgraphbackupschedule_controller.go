@@ -26,10 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	backupsv1alpha1 "github.com/sputnik-systems/backups-operator/api/v1alpha1"
+	"github.com/sputnik-systems/backups-operator/controllers/factory"
 	"github.com/sputnik-systems/backups-operator/controllers/factory/finalize"
 )
 
@@ -71,7 +73,7 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if !bs.DeletionTimestamp.IsZero() {
-		id := cron.EntryID(bs.Status.ScheduleID)
+		id := cron.EntryID(bs.Status.ScheduleTaskID)
 		for _, entry := range r.Cron.Entries() {
 			if entry.ID == id {
 				r.Cron.Remove(id)
@@ -92,27 +94,77 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, err
 		}
 
-		var id cron.EntryID
-		if bs.Status.ScheduleID != 0 {
-			id = cron.EntryID(bs.Status.ScheduleID)
+		createBackupFunc := func() {
+			name := fmt.Sprintf("%s-%d", bs.Name, time.Now().Unix())
 
-			for _, entry := range r.Cron.Entries() {
-				if entry.ID == id {
-					r.Cron.Remove(id)
-				}
+			b := &backupsv1alpha1.DgraphBackup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            name,
+					Namespace:       bs.Namespace,
+					OwnerReferences: bs.AsOwner(),
+				},
+				Spec: bs.Spec.Backup,
+			}
+
+			if err := r.Create(ctx, b); err != nil {
+				l.Error(err, "failed to create dgraph backup object")
 			}
 		}
 
-		id, err = r.Cron.AddFunc(bs.Spec.Schedule, func() { r.schedule(ctx, bs) })
+		id, err := factory.ScheduleTask(r.Cron, bs.Spec.Schedule, bs.Status.ScheduleTaskID, createBackupFunc)
 		if err != nil {
 			l.Error(err, "failed to schedule dgraph backup")
 
 			return ctrl.Result{}, err
 		}
 
-		bs.Status.ScheduleID = int(id)
+		bs.Status.ScheduleTaskID = int(id)
 		bs.Status.ActiveGeneration = bs.Generation
 		bs.Status.UpdatedAt = metav1.Now()
+
+		if bs.Spec.Retention != "" {
+			rd, err := time.ParseDuration(bs.Spec.Retention)
+			if err != nil {
+				l.Error(err, "failed to parse retention duration")
+
+				return ctrl.Result{}, err
+			}
+
+			removeOutdatedBackupsFunc := func() {
+				bl := &backupsv1alpha1.DgraphBackupList{}
+
+				if err := r.List(ctx, bl); err != nil {
+					l.Error(err, "failed to list dgraph backup objects")
+				}
+
+				for _, item := range bl.Items {
+					owner := metav1.GetControllerOf(&item)
+					if owner != nil {
+						if bs.ObjectMeta.UID != owner.UID {
+							continue
+						}
+
+						dt := item.ObjectMeta.CreationTimestamp.Time
+						if time.Since(dt) > rd {
+							l.Info(fmt.Sprintf("delete dgraph backup %s", item.ObjectMeta.Name))
+
+							if err := r.Delete(ctx, &item); err != nil {
+								l.Error(err, "failed to delete dgraph backup object")
+							}
+						}
+					}
+				}
+			}
+
+			id, err := factory.ScheduleTask(r.Cron, "@hourly", bs.Status.RetentionTaskID, removeOutdatedBackupsFunc)
+			if err != nil {
+				l.Error(err, "failed to schedule dgraph backup")
+
+				return ctrl.Result{}, err
+			}
+
+			bs.Status.RetentionTaskID = int(id)
+		}
 
 		if err := r.Status().Update(ctx, bs); err != nil {
 			l.Error(err, "failed update dgraph backup schedule object")
@@ -130,22 +182,6 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 func (r *DgraphBackupScheduleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupsv1alpha1.DgraphBackupSchedule{}).
+		Owns(&backupsv1alpha1.DgraphBackup{}, builder.OnlyMetadata).
 		Complete(r)
-}
-
-func (r *DgraphBackupScheduleReconciler) schedule(ctx context.Context, bs *backupsv1alpha1.DgraphBackupSchedule) {
-	l := log.FromContext(ctx)
-	name := fmt.Sprintf("%s-%d", bs.Name, time.Now().Unix())
-
-	b := &backupsv1alpha1.DgraphBackup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: bs.Namespace,
-		},
-		Spec: bs.Spec.Backup,
-	}
-
-	if err := r.Create(ctx, b); err != nil {
-		l.Error(err, "failed to create dgraph backup object")
-	}
 }

@@ -4,5 +4,6 @@ metadata:
   name: clickhousebackupschedule-sample
 spec:
   schedule: "*/5 * * * *"
+  retention: 15m
   backup:
     apiAddress: http://chi-default-default-0-0:7171
