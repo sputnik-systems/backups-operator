@@ -84,7 +84,8 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if b.Status.Phase == "" {
-		if err := r.updateStatusPhase(ctx, b, "Started"); err != nil {
+		b.Status.Phase = "Started"
+		if err := r.Status().Update(ctx, b); err != nil {
 			l.Error(err, "failed update dgraph backup object")
 
 			return ctrl.Result{}, err
@@ -96,34 +97,14 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, err
 		}
 
-		creds, err := factory.GetCredentials(ctx, r.Client, b.Spec.Secrets, b.Namespace)
-		if err != nil {
-			l.Error(err, "failed to get dgraph export creds")
+		if err := factory.CreateDgraphBackup(ctx, r.Client, b); err != nil {
+			l.Error(err, "failed to create dgraph backup")
 
 			return ctrl.Result{}, err
 		}
 
-		b.Spec.AdminUrl, err = factory.GetFQDN(b.Spec.AdminUrl, b.Namespace)
-		if err != nil {
-			l.Error(err, "failed to get fqdn")
-
-			return ctrl.Result{}, err
-		}
-
-		out, err := dgraph.Export(ctx, r.Client, &b.Spec, creds)
-		if err != nil {
-			l.Error(err, "failed to execute export in dgraph")
-
-			if err := r.updateStatusPhase(ctx, b, "Failed"); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, err
-		}
-
-		r.setStatusExportInfo(b, out)
-
-		if err := r.updateStatusPhase(ctx, b, "Completed"); err != nil {
+		b.Status.Phase = "Completed"
+		if err := r.Status().Update(ctx, b); err != nil {
 			l.Error(err, "failed update dgraph backup object")
 
 			return ctrl.Result{}, err
@@ -142,25 +123,4 @@ func (r *DgraphBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupsv1alpha1.DgraphBackup{}).
 		Complete(r)
-}
-
-func (r *DgraphBackupReconciler) updateStatus(ctx context.Context, b *backupsv1alpha1.DgraphBackup) error {
-	return r.Status().Update(ctx, b)
-}
-
-func (r *DgraphBackupReconciler) updateStatusPhase(ctx context.Context, b *backupsv1alpha1.DgraphBackup, phase string) error {
-	b.Status.Phase = phase
-
-	return r.updateStatus(ctx, b)
-}
-
-func (r *DgraphBackupReconciler) setStatusExportInfo(b *backupsv1alpha1.DgraphBackup, out *dgraph.ExportOutput) {
-	files := make([]string, 0)
-	for _, file := range out.ExportedFiles {
-		files = append(files, string(file))
-	}
-
-	b.Status.ExportResponse.ExportedFiles = files
-	b.Status.ExportResponse.Message = string(out.Response.Message)
-	b.Status.ExportResponse.Code = string(out.Response.Code)
 }

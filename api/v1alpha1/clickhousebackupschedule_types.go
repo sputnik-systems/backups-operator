@@ -65,3 +65,16 @@ type ClickHouseBackupScheduleList struct {
 func init() {
 	SchemeBuilder.Register(&ClickHouseBackupSchedule{}, &ClickHouseBackupScheduleList{})
 }
+
+// IsNeedUpdate returns true if resource must be updated
+func (s *ClickHouseBackupSchedule) IsNeedUpdate(startedAt *metav1.Time) bool {
+	if s.Generation != s.Status.ActiveGeneration {
+		return true
+	}
+
+	if s.Status.UpdatedAt.Before(startedAt) {
+		return true
+	}
+
+	return false
+}
