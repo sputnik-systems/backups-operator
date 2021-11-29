@@ -71,14 +71,19 @@ func CreateClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1a
 				b.Status.Phase = "Created"
 				return rc.Status().Update(ctx, b)
 			default:
-				return fmt.Errorf("clickhouse backup creating operation is %q", last.Status)
+				return fmt.Errorf("clickhouse backup creating operation is %q status long time", last.Status)
 			}
 		}
 
 		return nil
 	}
 
-	return backoff.Retry(op, bo)
+	if err := backoff.Retry(op, bo); err != nil {
+		b.Status.Phase = "CreateFailed"
+		b.Status.Error = err.Error()
+	}
+
+	return rc.Status().Update(ctx, b)
 }
 
 func UploadClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1alpha1.ClickHouseBackup) error {
@@ -119,12 +124,17 @@ func UploadClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1a
 				b.Status.Phase = "Completed"
 				return rc.Status().Update(ctx, b)
 			default:
-				return fmt.Errorf("clickhouse backup uploading operation is %q", last.Status)
+				return fmt.Errorf("clickhouse backup uploading operation is %q status long time", last.Status)
 			}
 		}
 
 		return nil
 	}
 
-	return backoff.Retry(op, bo)
+	if err := backoff.Retry(op, bo); err != nil {
+		b.Status.Phase = "UploadFailed"
+		b.Status.Error = err.Error()
+	}
+
+	return rc.Status().Update(ctx, b)
 }
