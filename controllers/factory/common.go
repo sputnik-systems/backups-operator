@@ -7,10 +7,25 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/robfig/cron/v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func ScheduleTask(c *cron.Cron, schedule string, id int, f func()) (cron.EntryID, error) {
+	if id != 0 {
+		eId := cron.EntryID(id)
+
+		for _, entry := range c.Entries() {
+			if entry.ID == eId {
+				c.Remove(eId)
+			}
+		}
+	}
+
+	return c.AddFunc(schedule, f)
+}
 
 func GetCredentials(ctx context.Context, rc client.Client, secrets []string, ns string) (map[string]string, error) {
 	creds := make(map[string]string)
