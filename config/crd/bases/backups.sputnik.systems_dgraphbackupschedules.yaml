@@ -75,6 +75,9 @@ spec:
                 - adminUrl
                 - destination
                 type: object
+              retention:
+                description: Retention is specify how long should to keep backups
+                type: string
               schedule:
                 description: Schedule is schedule info in github.com/robfig/cron supported
                   notation
@@ -90,7 +93,9 @@ spec:
               activeGeneration:
                 format: int64
                 type: integer
-              scheduleId:
+              retentionTaskId:
+                type: integer
+              scheduleTaskId:
                 type: integer
               updatedTime:
                 format: date-time
