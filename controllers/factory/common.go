@@ -27,7 +27,7 @@ func ScheduleTask(c *cron.Cron, schedule string, id int, f func()) (cron.EntryID
 	return c.AddFunc(schedule, f)
 }
 
-func GetCredentials(ctx context.Context, rc client.Client, secrets []string, ns string) (map[string]string, error) {
+func getCredentials(ctx context.Context, rc client.Client, secrets []string, ns string) (map[string]string, error) {
 	creds := make(map[string]string)
 
 	for _, name := range secrets {

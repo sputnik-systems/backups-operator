@@ -7,11 +7,53 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupsv1alpha1 "github.com/sputnik-systems/backups-operator/api/v1alpha1"
+	"github.com/sputnik-systems/backups-operator/controllers/factory/finalize"
 	"github.com/sputnik-systems/backups-operator/internal/dgraph"
 )
 
-func CreateDgraphBackup(ctx context.Context, rc client.Client, b *backupsv1alpha1.DgraphBackup) error {
-	creds, err := GetCredentials(ctx, rc, b.Spec.Secrets, b.Namespace)
+func ProccessDgraphBackupObject(ctx context.Context, rc client.Client, b *backupsv1alpha1.DgraphBackup) error {
+	if b.Status.Phase == "" {
+		if err := finalize.AddFinalizer(ctx, rc, b); err != nil {
+			return fmt.Errorf("failed to add finalizer: %w", err)
+		}
+
+		b.Status.Phase = "Started"
+		if err := rc.Status().Update(ctx, b); err != nil {
+			return fmt.Errorf("failed update status: %w", err)
+		}
+
+		if err := createDgraphBackup(ctx, rc, b); err != nil {
+			return fmt.Errorf("failed to create backup: %w", err)
+		}
+
+		b.Status.Phase = "Completed"
+		if err := rc.Status().Update(ctx, b); err != nil {
+			return fmt.Errorf("failed update status: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func DeleteDgraphBackupObject(ctx context.Context, rc client.Client, b *backupsv1alpha1.DgraphBackup) error {
+	creds, err := getCredentials(ctx, rc, b.Spec.Secrets, b.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get creds: %w", err)
+	}
+
+	if err := dgraph.DeleteExport(ctx, b, creds); err != nil {
+		return fmt.Errorf("failed to delete backup from remote storage: %w", err)
+	}
+
+	if err := finalize.RemoveFinalizeObjByName(ctx, rc, b, b.Name, b.Namespace); err != nil {
+		return fmt.Errorf("failed to remove finalizer: %w", err)
+	}
+
+	return nil
+}
+
+func createDgraphBackup(ctx context.Context, rc client.Client, b *backupsv1alpha1.DgraphBackup) error {
+	creds, err := getCredentials(ctx, rc, b.Spec.Secrets, b.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get dgraph export creds: %w", err)
 	}
