@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,8 +28,7 @@ import (
 
 	backupsv1alpha1 "github.com/sputnik-systems/backups-operator/api/v1alpha1"
 	"github.com/sputnik-systems/backups-operator/controllers/factory"
-	"github.com/sputnik-systems/backups-operator/controllers/factory/finalize"
-	"github.com/sputnik-systems/backups-operator/internal/clickhouse"
+	"github.com/sputnik-systems/backups-operator/internal/metrics"
 )
 
 // ClickHouseBackupReconciler reconciles a ClickHouseBackup object
@@ -67,53 +67,46 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if !b.DeletionTimestamp.IsZero() {
-		if _, err := clickhouse.DeleteBackup(ctx, b); err != nil {
-			l.Error(err, "failed to delete backup")
+		err = factory.DeleteClickHouseBackupObject(ctx, r.Client, b)
+
+		if err != nil {
+			l.Error(err, "failed to delete clickhouse backup object")
 		}
 
-		if err := finalize.RemoveFinalizeObjByName(ctx, r.Client, b, b.Name, b.Namespace); err != nil {
-			return ctrl.Result{}, err
-		}
+		metrics.BackupsByController.Delete(
+			prometheus.Labels{
+				"name":       b.Name,
+				"namespace":  b.Namespace,
+				"controller": "clickhousebackup",
+			},
+		)
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
-	if b.Status.Phase == "" {
-		b.Status.Phase = "Started"
-		if err := r.Status().Update(ctx, b); err != nil {
-			l.Error(err, "failed update clickhouse backup object")
+	if err := factory.ProccessClickHouseBackupObject(ctx, r.Client, b); err != nil {
+		metrics.BackupsByController.With(
+			prometheus.Labels{
+				"name":       b.Name,
+				"namespace":  b.Namespace,
+				"controller": "clickhousebackup",
+				"status":     "failed",
+			},
+		).Set(1)
 
-			return ctrl.Result{}, err
-		}
+		l.Error(err, "failed to process clickhouse backup object")
 
-		if err := finalize.AddFinalizer(ctx, r.Client, b); err != nil {
-			l.Error(err, "failed to add finalizer")
-
-			return ctrl.Result{}, err
-		}
-
-		if err := factory.UpdateClickHouseBackupStatusApiInfo(ctx, r.Client, b); err != nil {
-			l.Error(err, "failed to update status api info")
-
-			return ctrl.Result{}, err
-		}
-
-		if err := factory.CreateClickHouseBackup(ctx, r.Client, b); err != nil {
-			l.Error(err, "failed to create backup")
-
-			return ctrl.Result{}, err
-		}
-
-		if b.Status.Phase == "Created" {
-			if err := factory.UploadClickHouseBackup(ctx, r.Client, b); err != nil {
-				l.Error(err, "failed to upload backup")
-
-				return ctrl.Result{}, err
-			}
-		}
-
-		l.Info("backup created succesfully")
+		return ctrl.Result{}, err
 	}
+
+	metrics.BackupsByController.With(
+		prometheus.Labels{
+			"name":       b.Name,
+			"namespace":  b.Namespace,
+			"controller": "clickhousebackup",
+			"status":     "success",
+		},
+	).Set(1)
 
 	l.Info("finished resource reconclie")
 

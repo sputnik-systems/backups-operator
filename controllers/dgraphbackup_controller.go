@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,8 +28,7 @@ import (
 
 	backupsv1alpha1 "github.com/sputnik-systems/backups-operator/api/v1alpha1"
 	"github.com/sputnik-systems/backups-operator/controllers/factory"
-	"github.com/sputnik-systems/backups-operator/controllers/factory/finalize"
-	"github.com/sputnik-systems/backups-operator/internal/dgraph"
+	"github.com/sputnik-systems/backups-operator/internal/metrics"
 )
 
 // DgraphBackupReconciler reconciles a DgraphBackup object
@@ -67,51 +67,46 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if !b.DeletionTimestamp.IsZero() {
-		creds, err := factory.GetCredentials(ctx, r.Client, b.Spec.Secrets, b.Namespace)
+		err = factory.DeleteDgraphBackupObject(ctx, r.Client, b)
+
 		if err != nil {
-			l.Error(err, "failed to get dgraph export creds")
+			l.Error(err, "failed to delete dgraph backup object")
 		}
 
-		if err := dgraph.DeleteExport(ctx, b, creds); err != nil {
-			l.Error(err, "failed to delete backup from remote storage")
-		}
+		metrics.BackupsByController.Delete(
+			prometheus.Labels{
+				"name":       b.Name,
+				"namespace":  b.Namespace,
+				"controller": "dgraphbackup",
+			},
+		)
 
-		if err := finalize.RemoveFinalizeObjByName(ctx, r.Client, b, b.Name, b.Namespace); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
-	if b.Status.Phase == "" {
-		b.Status.Phase = "Started"
-		if err := r.Status().Update(ctx, b); err != nil {
-			l.Error(err, "failed update dgraph backup object")
+	if err := factory.ProccessDgraphBackupObject(ctx, r.Client, b); err != nil {
+		metrics.BackupsByController.With(
+			prometheus.Labels{
+				"name":       b.Name,
+				"namespace":  b.Namespace,
+				"controller": "dgraphbackup",
+				"status":     "failed",
+			},
+		).Set(1)
 
-			return ctrl.Result{}, err
-		}
+		l.Error(err, "failed to process dgraph backup object")
 
-		if err := finalize.AddFinalizer(ctx, r.Client, b); err != nil {
-			l.Error(err, "failed to add finalizer")
-
-			return ctrl.Result{}, err
-		}
-
-		if err := factory.CreateDgraphBackup(ctx, r.Client, b); err != nil {
-			l.Error(err, "failed to create dgraph backup")
-
-			return ctrl.Result{}, err
-		}
-
-		b.Status.Phase = "Completed"
-		if err := r.Status().Update(ctx, b); err != nil {
-			l.Error(err, "failed update dgraph backup object")
-
-			return ctrl.Result{}, err
-		}
-
-		l.Info("backup created succesfully")
+		return ctrl.Result{}, err
 	}
+
+	metrics.BackupsByController.With(
+		prometheus.Labels{
+			"name":       b.Name,
+			"namespace":  b.Namespace,
+			"controller": "dgraphbackup",
+			"status":     "success",
+		},
+	).Set(1)
 
 	l.Info("finished resource reconclie")
 
