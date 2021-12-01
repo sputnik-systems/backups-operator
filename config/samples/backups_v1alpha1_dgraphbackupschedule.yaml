@@ -4,9 +4,10 @@ metadata:
   name: default
 spec:
   schedule: "*/10 * * * *"
+  retention: 45m
   backup:
     adminUrl: http://dgraph-dgraph-alpha:8080/admin
-    destination: s3://s3.us-east-2.amazonaws.com/dgraph-test
-    region: us-east-2
+    destination: s3://s3.eu-north-1.amazonaws.com/dgraph-test
+    region: eu-north-1
     secrets:
       - dgraph-backup-s3-creds

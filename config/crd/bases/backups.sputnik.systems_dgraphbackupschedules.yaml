@@ -21,6 +21,10 @@ spec:
       jsonPath: .spec.schedule
       name: Schedule
       type: string
+    - description: backup objects retention perion
+      jsonPath: .spec.retention
+      name: Retention
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
