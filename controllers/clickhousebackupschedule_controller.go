@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/robfig/cron/v3"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ import (
 	backupsv1alpha1 "github.com/sputnik-systems/backups-operator/api/v1alpha1"
 	"github.com/sputnik-systems/backups-operator/controllers/factory"
 	"github.com/sputnik-systems/backups-operator/controllers/factory/finalize"
+	"github.com/sputnik-systems/backups-operator/internal/metrics"
 )
 
 // ClickHouseBackupScheduleReconciler reconciles a ClickHouseBackupSchedule object
@@ -106,6 +108,15 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 			}
 
 			if err := r.Create(ctx, b); err != nil {
+				metrics.ScheduledTaskFailuresByControllerTotal.With(
+					prometheus.Labels{
+						"name":       bs.Name,
+						"namespace":  bs.Namespace,
+						"controller": "clickhousebackupschedule",
+						"type":       "create",
+					},
+				).Inc()
+
 				l.Error(err, "failed to create clickhouse backup object")
 			}
 		}
@@ -133,21 +144,41 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 				bl := &backupsv1alpha1.ClickHouseBackupList{}
 
 				if err := r.List(ctx, bl); err != nil {
+					metrics.ScheduledTaskFailuresByControllerTotal.With(
+						prometheus.Labels{
+							"name":       bs.Name,
+							"namespace":  bs.Namespace,
+							"controller": "clickhousebackupschedule",
+							"type":       "remove",
+						},
+					).Inc()
+
 					l.Error(err, "failed to list clickhouse backup objects")
+
+					return
 				}
 
 				for _, item := range bl.Items {
 					owner := metav1.GetControllerOf(&item)
 					if owner != nil {
-						if bs.ObjectMeta.UID != owner.UID {
+						if bs.UID != owner.UID {
 							continue
 						}
 
-						dt := item.ObjectMeta.CreationTimestamp.Time
+						dt := item.CreationTimestamp.Time
 						if time.Since(dt) > rd {
-							l.Info(fmt.Sprintf("delete clickhouse backup %s", item.ObjectMeta.Name))
+							l.Info(fmt.Sprintf("delete clickhouse backup %s", item.Name))
 
 							if err := r.Delete(ctx, &item); err != nil {
+								metrics.ScheduledTaskFailuresByControllerTotal.With(
+									prometheus.Labels{
+										"name":       bs.Name,
+										"namespace":  bs.Namespace,
+										"controller": "clickhousebackupschedule",
+										"type":       "remove",
+									},
+								).Inc()
+
 								l.Error(err, "failed to delete clickhouse backup object")
 							}
 						}

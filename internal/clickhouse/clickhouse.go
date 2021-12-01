@@ -32,14 +32,14 @@ func CreateBackup(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) (*ht
 	for key, value := range b.Spec.CreateParams {
 		q.Add(key, value)
 	}
-	q.Add("name", b.ObjectMeta.Name)
+	q.Add("name", b.Name)
 	req.URL.RawQuery = q.Encode()
 
 	return http.DefaultClient.Do(req)
 }
 
 func UploadBackup(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodPost, b.Status.Api.Address+"/backup/upload/"+b.ObjectMeta.Name, nil)
+	req, err := http.NewRequest(http.MethodPost, b.Status.Api.Address+"/backup/upload/"+b.Name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate backup uploading request: %s", err)
 	}
@@ -62,11 +62,11 @@ func DeleteBackup(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) (*ht
 	for _, backup := range backups {
 		switch backup.Location {
 		case "local":
-			if resp, err := http.Post(b.Status.Api.Address+"/backup/delete/local/"+b.ObjectMeta.Name, "application/json", nil); err != nil {
+			if resp, err := http.Post(b.Status.Api.Address+"/backup/delete/local/"+b.Name, "application/json", nil); err != nil {
 				return resp, fmt.Errorf("failed to delete local backup: %s", err)
 			}
 		case "remote":
-			if resp, err := http.Post(b.Status.Api.Address+"/backup/delete/remote/"+b.ObjectMeta.Name, "application/json", nil); err != nil {
+			if resp, err := http.Post(b.Status.Api.Address+"/backup/delete/remote/"+b.Name, "application/json", nil); err != nil {
 				return resp, fmt.Errorf("failed to delete remote backup: %s", err)
 			}
 		}
@@ -92,7 +92,7 @@ func GetStatus(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) ([]serv
 			return nil, fmt.Errorf("failed to unmarshal action row: %s", err)
 		}
 
-		if strings.Contains(row.Command, b.ObjectMeta.Name) {
+		if strings.Contains(row.Command, b.Name) {
 			rows = append(rows, row)
 		}
 	}
@@ -117,7 +117,7 @@ func listBackups(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) ([]Ba
 			return nil, fmt.Errorf("failed to unmarshal backup: %s", err)
 		}
 
-		if backup.Name == b.ObjectMeta.Name {
+		if backup.Name == b.Name {
 			backups = append(backups, backup)
 		}
 	}
