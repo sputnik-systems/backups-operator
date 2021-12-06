@@ -97,7 +97,11 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		createBackupFunc := func() {
+			l.Info("executing backup create schedule")
+
 			name := fmt.Sprintf("%s-%d", bs.Name, time.Now().Unix())
+
+			l.Info(fmt.Sprintf("creating %s backup object", name))
 
 			b := &backupsv1alpha1.DgraphBackup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -142,6 +146,8 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 			}
 
 			removeOutdatedBackupsFunc := func() {
+				l.Info("executing backups remove schedule")
+
 				bl := &backupsv1alpha1.DgraphBackupList{}
 
 				if err := r.List(ctx, bl); err != nil {
@@ -168,7 +174,7 @@ func (r *DgraphBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl
 
 						dt := item.CreationTimestamp.Time
 						if time.Since(dt) > rd {
-							l.Info(fmt.Sprintf("delete dgraph backup %s", item.Name))
+							l.Info(fmt.Sprintf("delete %s backup object", item.Name))
 
 							if err := r.Delete(ctx, &item); err != nil {
 								metrics.ScheduledTaskFailuresByControllerTotal.With(

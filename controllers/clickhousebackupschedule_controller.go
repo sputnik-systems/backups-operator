@@ -96,7 +96,11 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 		}
 
 		createBackupFunc := func() {
+			l.Info("executing backup create schedule")
+
 			name := fmt.Sprintf("%s-%d", bs.Name, time.Now().Unix())
+
+			l.Info(fmt.Sprintf("creating %s backup object", name))
 
 			b := &backupsv1alpha1.ClickHouseBackup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -141,6 +145,8 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 			}
 
 			removeOutdatedBackupsFunc := func() {
+				l.Info("executing backups remove schedule")
+
 				bl := &backupsv1alpha1.ClickHouseBackupList{}
 
 				if err := r.List(ctx, bl); err != nil {
@@ -167,7 +173,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 
 						dt := item.CreationTimestamp.Time
 						if time.Since(dt) > rd {
-							l.Info(fmt.Sprintf("delete clickhouse backup %s", item.Name))
+							l.Info(fmt.Sprintf("delete %s backup object", item.Name))
 
 							if err := r.Delete(ctx, &item); err != nil {
 								metrics.ScheduledTaskFailuresByControllerTotal.With(
