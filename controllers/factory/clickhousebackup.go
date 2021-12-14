@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupsv1alpha1 "github.com/sputnik-systems/backups-operator/api/v1alpha1"
@@ -89,7 +89,11 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1a
 		return err
 	}
 
-	bo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
+	var bo backoff.BackOff
+	bo, err := b.Spec.ExponentialBackOff.GetBackOff()
+	if err != nil {
+		return fmt.Errorf("failed to parse backoff settings: %w", err)
+	}
 	op := func() error {
 		rows, err := clickhouse.GetStatus(ctx, b)
 		if err != nil {
@@ -118,7 +122,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1a
 		return nil
 	}
 
-	if err := backoff.Retry(op, bo); err != nil {
+	if err := backoff.Retry(op, backoff.WithContext(bo, ctx)); err != nil {
 		b.Status.Phase = "CreateFailed"
 		b.Status.Error = err.Error()
 	}
@@ -142,7 +146,11 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1a
 		return err
 	}
 
-	bo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
+	var bo backoff.BackOff
+	bo, err := b.Spec.ExponentialBackOff.GetBackOff()
+	if err != nil {
+		return fmt.Errorf("failed to parse backoff settings: %w", err)
+	}
 	op := func() error {
 		rows, err := clickhouse.GetStatus(ctx, b)
 		if err != nil {
@@ -171,7 +179,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, b *backupsv1a
 		return nil
 	}
 
-	if err := backoff.Retry(op, bo); err != nil {
+	if err := backoff.Retry(op, backoff.WithContext(bo, ctx)); err != nil {
 		b.Status.Phase = "UploadFailed"
 		b.Status.Error = err.Error()
 	}

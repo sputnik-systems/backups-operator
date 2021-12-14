@@ -61,6 +61,19 @@ spec:
                       type: string
                     description: CreateParams is optional backup creating query params
                     type: object
+                  exponentialBackOff:
+                    description: ExponentialBackOff is specify exponential backoff
+                      time settings for backup creation flow
+                    properties:
+                      initialInterval:
+                        type: string
+                      maxElapsedTime:
+                        type: string
+                      maxInterval:
+                        description: RandomizationFactor float64 `json:"randomizationFactor,omitempty"`
+                          Multiplier          float64 `json:"multiplier,omitempty"`
+                        type: string
+                    type: object
                   uploadParams:
                     additionalProperties:
                       type: string
