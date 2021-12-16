@@ -28,6 +28,9 @@ type ClickHouseBackupSpec struct {
 	// ApiAddress is requests sending endpoint
 	ApiAddress string `json:"apiAddress"`
 
+	// ExponentialBackOff is specify exponential backoff time settings for backup creation flow
+	ExponentialBackOff *ExponentialBackOffSpec `json:"exponentialBackOff,omitempty"`
+
 	// CreateParams is optional backup creating query params
 	CreateParams map[string]string `json:"createParams,omitempty"`
 

@@ -6,6 +6,7 @@ require (
 	github.com/AlexAkulov/clickhouse-backup v1.2.1
 	github.com/aws/aws-sdk-go v1.41.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/hasura/go-graphql-client v0.3.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
