@@ -21,7 +21,9 @@ func ProccessDgraphBackupObject(ctx context.Context, rc client.Client, b *backup
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed update status: %w", err)
 		}
+	}
 
+	if b.Status.Phase == "Started" {
 		if err := createDgraphBackup(ctx, rc, b); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
