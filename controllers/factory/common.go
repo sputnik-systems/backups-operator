@@ -5,24 +5,30 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/robfig/cron/v3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ScheduleTask(c *cron.Cron, schedule string, id int, f func()) (cron.EntryID, error) {
+func ScheduleTask(c *cron.Cron, l logr.Logger, schedule string, id int, f func()) (cron.EntryID, error) {
 	if id != 0 {
 		eId := cron.EntryID(id)
 
 		for _, entry := range c.Entries() {
 			if entry.ID == eId {
+				l.V(4).Info("removing task schedule", "schedule", schedule, "id", strconv.Itoa(id))
+
 				c.Remove(eId)
 			}
 		}
 	}
+
+	l.V(4).Info("scheduling task", "schedule", schedule)
 
 	return c.AddFunc(schedule, f)
 }

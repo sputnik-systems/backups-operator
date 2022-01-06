@@ -93,11 +93,11 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 			return fmt.Errorf("failed update clickhouse backup object: %w", err)
 		}
 
-		l.V(2).Info("started backup creation")
+		l.V(4).Info("started backup creation")
 	}
 
 	if b.Status.Phase == "Creating" {
-		l.V(2).Info("checking backup creation")
+		l.V(4).Info("checking backup creation")
 
 		var bo backoff.BackOff
 		bo, err := b.Spec.ExponentialBackOff.GetBackOff()
@@ -120,12 +120,12 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 				return fmt.Errorf("failed to get backups status: %w", err)
 			}
 
-			l.V(2).Info("backup creation progress", "rows", strconv.Itoa(len(rows)))
+			l.V(4).Info("backup creation progress", "rows", strconv.Itoa(len(rows)))
 
 			if len(rows) > 0 {
 				last := rows[len(rows)-1]
 
-				l.V(2).Info("backup creation progress", "status", last.Status)
+				l.V(4).Info("backup creation progress", "status", last.Status)
 
 				switch last.Status {
 				case "error":
@@ -173,11 +173,11 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 			return fmt.Errorf("failed update clickhouse backup object: %w", err)
 		}
 
-		l.V(2).Info("started backup uploading")
+		l.V(4).Info("started backup uploading")
 	}
 
 	if b.Status.Phase == "Uploading" {
-		l.V(2).Info("checking backup uploading")
+		l.V(4).Info("checking backup uploading")
 
 		var bo backoff.BackOff
 		bo, err := b.Spec.ExponentialBackOff.GetBackOff()
@@ -200,12 +200,12 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 				return fmt.Errorf("failed to get backups status: %w", err)
 			}
 
-			l.V(2).Info("backup uploading progress", "rows", strconv.Itoa(len(rows)))
+			l.V(4).Info("backup uploading progress", "rows", strconv.Itoa(len(rows)))
 
 			if len(rows) > 0 {
 				last := rows[len(rows)-1]
 
-				l.V(2).Info("backup uploading progress", "status", last.Status)
+				l.V(4).Info("backup uploading progress", "status", last.Status)
 
 				switch last.Status {
 				case "error":
