@@ -53,7 +53,7 @@ type DgraphBackupReconciler struct {
 func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
-	l.Info("started resource reconclie")
+	l.V(1).Info("started resource reconclie")
 
 	b := &backupsv1alpha1.DgraphBackup{}
 	err := r.Get(ctx, req.NamespacedName, b)
@@ -63,12 +63,12 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 
 		l.Error(err, "failed to get dgraph backup object for reconclie")
+
 		return ctrl.Result{}, err
 	}
 
 	if !b.DeletionTimestamp.IsZero() {
 		err = factory.DeleteDgraphBackupObject(ctx, r.Client, b)
-
 		if err != nil {
 			l.Error(err, "failed to delete dgraph backup object")
 		}
@@ -108,7 +108,7 @@ func (r *DgraphBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		},
 	).Set(1)
 
-	l.Info("finished resource reconclie")
+	l.V(1).Info("finished resource reconclie")
 
 	return ctrl.Result{}, nil
 }

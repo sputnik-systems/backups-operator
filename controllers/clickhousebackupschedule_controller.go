@@ -60,7 +60,7 @@ type ClickHouseBackupScheduleReconciler struct {
 func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
-	l.Info("started resource reconclie")
+	l.V(1).Info("started resource reconclie")
 
 	bs := &backupsv1alpha1.ClickHouseBackupSchedule{}
 	err := r.Get(ctx, req.NamespacedName, bs)
@@ -70,6 +70,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 		}
 
 		l.Error(err, "failed to get clickhouse backupi schedule object for reconclie")
+
 		return ctrl.Result{}, err
 	}
 
@@ -96,11 +97,11 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 		}
 
 		createBackupFunc := func() {
-			l.Info("executing backup create schedule")
+			l.V(3).Info("executing backup create schedule")
 
 			name := fmt.Sprintf("%s-%d", bs.Name, time.Now().Unix())
 
-			l.Info(fmt.Sprintf("creating %s backup object", name))
+			l.V(3).Info("creating backup object", "name", name)
 
 			b := &backupsv1alpha1.ClickHouseBackup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -117,7 +118,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 						"name":       bs.Name,
 						"namespace":  bs.Namespace,
 						"controller": "clickhousebackupschedule",
-						"type":       "create",
+						"action":     "create",
 					},
 				).Inc()
 
@@ -125,7 +126,9 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 			}
 		}
 
-		id, err := factory.ScheduleTask(r.Cron, bs.Spec.Schedule, bs.Status.ScheduleTaskID, createBackupFunc)
+		l.V(2).Info("schedule backup creation task")
+
+		id, err := factory.ScheduleTask(r.Cron, l.WithValues("action", "create"), bs.Spec.Schedule, bs.Status.ScheduleTaskID, createBackupFunc)
 		if err != nil {
 			l.Error(err, "failed to schedule clickhouse backup")
 
@@ -145,7 +148,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 			}
 
 			removeOutdatedBackupsFunc := func() {
-				l.Info("executing backups remove schedule")
+				l.V(3).Info("executing backups remove schedule")
 
 				bl := &backupsv1alpha1.ClickHouseBackupList{}
 
@@ -155,7 +158,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 							"name":       bs.Name,
 							"namespace":  bs.Namespace,
 							"controller": "clickhousebackupschedule",
-							"type":       "remove",
+							"action":     "remove",
 						},
 					).Inc()
 
@@ -173,7 +176,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 
 						dt := item.CreationTimestamp.Time
 						if time.Since(dt) > rd {
-							l.Info(fmt.Sprintf("delete %s backup object", item.Name))
+							l.V(3).Info("delete backup object", "name", item.Name)
 
 							if err := r.Delete(ctx, &item); err != nil {
 								metrics.ScheduledTaskFailuresByControllerTotal.With(
@@ -181,7 +184,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 										"name":       bs.Name,
 										"namespace":  bs.Namespace,
 										"controller": "clickhousebackupschedule",
-										"type":       "remove",
+										"action":     "remove",
 									},
 								).Inc()
 
@@ -192,7 +195,9 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 				}
 			}
 
-			id, err := factory.ScheduleTask(r.Cron, "@hourly", bs.Status.RetentionTaskID, removeOutdatedBackupsFunc)
+			l.V(2).Info("schedule backup rotation task")
+
+			id, err := factory.ScheduleTask(r.Cron, l.WithValues("action", "remove"), "@hourly", bs.Status.RetentionTaskID, removeOutdatedBackupsFunc)
 			if err != nil {
 				l.Error(err, "failed to schedule clickhouse backup")
 
@@ -209,7 +214,7 @@ func (r *ClickHouseBackupScheduleReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 
-	l.Info("finished resource reconclie")
+	l.V(1).Info("finished resource reconclie")
 
 	return ctrl.Result{}, nil
 }

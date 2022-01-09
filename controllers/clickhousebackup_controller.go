@@ -53,7 +53,7 @@ type ClickHouseBackupReconciler struct {
 func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
-	l.Info("started resource reconclie")
+	l.V(1).Info("started resource reconclie")
 
 	b := &backupsv1alpha1.ClickHouseBackup{}
 	err := r.Get(ctx, req.NamespacedName, b)
@@ -63,12 +63,12 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		l.Error(err, "failed to get clickhouse backup object for reconclie")
+
 		return ctrl.Result{}, err
 	}
 
 	if !b.DeletionTimestamp.IsZero() {
 		err = factory.DeleteClickHouseBackupObject(ctx, r.Client, b)
-
 		if err != nil {
 			l.Error(err, "failed to delete clickhouse backup object")
 		}
@@ -108,7 +108,7 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		},
 	).Set(1)
 
-	l.Info("finished resource reconclie")
+	l.V(1).Info("finished resource reconclie")
 
 	return ctrl.Result{}, nil
 }
