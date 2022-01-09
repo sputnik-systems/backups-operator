@@ -84,7 +84,7 @@ func (r *ClickHouseBackupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if err := factory.ProccessClickHouseBackupObject(ctx, r.Client, b); err != nil {
+	if err := factory.ProccessClickHouseBackupObject(ctx, r.Client, l, b); err != nil {
 		metrics.BackupsByController.With(
 			prometheus.Labels{
 				"name":       b.Name,
