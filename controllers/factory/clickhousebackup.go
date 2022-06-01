@@ -44,11 +44,18 @@ func ProccessClickHouseBackupObject(ctx context.Context, rc client.Client, l log
 }
 
 func DeleteClickHouseBackupObject(ctx context.Context, rc client.Client, b *backupsv1alpha1.ClickHouseBackup) error {
-	if _, err := clickhouse.DeleteBackup(ctx, b); err != nil {
+	var err error
+
+	b.Spec.ApiAddress, err = getFQDN(b.Spec.ApiAddress, b.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get resource fqdn: %w", err)
+	}
+
+	if _, err = clickhouse.DeleteBackup(ctx, b); err != nil {
 		return fmt.Errorf("failed to delete backup: %w", err)
 	}
 
-	if err := finalize.RemoveFinalizeObjByName(ctx, rc, b, b.Name, b.Namespace); err != nil {
+	if err = finalize.RemoveFinalizeObjByName(ctx, rc, b, b.Name, b.Namespace); err != nil {
 		return fmt.Errorf("failed to remove finalizer: %w", err)
 	}
 

@@ -62,11 +62,11 @@ func DeleteBackup(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) (*ht
 	for _, backup := range backups {
 		switch backup.Location {
 		case "local":
-			if resp, err := http.Post(b.Status.Api.Address+"/backup/delete/local/"+b.Name, "application/json", nil); err != nil {
+			if resp, err := http.Post(b.Spec.ApiAddress+"/backup/delete/local/"+b.Name, "application/json", nil); err != nil {
 				return resp, fmt.Errorf("failed to delete local backup: %s", err)
 			}
 		case "remote":
-			if resp, err := http.Post(b.Status.Api.Address+"/backup/delete/remote/"+b.Name, "application/json", nil); err != nil {
+			if resp, err := http.Post(b.Spec.ApiAddress+"/backup/delete/remote/"+b.Name, "application/json", nil); err != nil {
 				return resp, fmt.Errorf("failed to delete remote backup: %s", err)
 			}
 		}
@@ -101,7 +101,7 @@ func GetStatus(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) ([]serv
 }
 
 func listBackups(ctx context.Context, b *backupsv1alpha1.ClickHouseBackup) ([]Backup, error) {
-	resp, err := http.Get(b.Status.Api.Address + "/backup/list")
+	resp, err := http.Get(b.Spec.ApiAddress + "/backup/list")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get status: %s", err)
 	}
