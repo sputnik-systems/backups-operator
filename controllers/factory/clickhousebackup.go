@@ -22,7 +22,7 @@ func ProccessClickHouseBackupObject(ctx context.Context, rc client.Client, l log
 			return fmt.Errorf("failed to add finalizer: %w", err)
 		}
 
-		b.Status.Phase = "Started"
+		b.Status.Phase = PhaseStarted
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed update status: %w", err)
 		}
@@ -46,13 +46,15 @@ func ProccessClickHouseBackupObject(ctx context.Context, rc client.Client, l log
 func DeleteClickHouseBackupObject(ctx context.Context, rc client.Client, b *backupsv1alpha1.ClickHouseBackup) error {
 	var err error
 
-	b.Spec.ApiAddress, err = getFQDN(b.Spec.ApiAddress, b.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get resource fqdn: %w", err)
-	}
+	if b.Status.Phase == PhaseCreateFailed {
+		b.Spec.ApiAddress, err = getFQDN(b.Spec.ApiAddress, b.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to get resource fqdn: %w", err)
+		}
 
-	if _, err = clickhouse.DeleteBackup(ctx, b); err != nil {
-		return fmt.Errorf("failed to delete backup: %w", err)
+		if _, err = clickhouse.DeleteBackup(ctx, b); err != nil {
+			return fmt.Errorf("failed to delete backup: %w", err)
+		}
 	}
 
 	if err = finalize.RemoveFinalizeObjByName(ctx, rc, b, b.Name, b.Namespace); err != nil {
@@ -84,9 +86,9 @@ func updateClickHouseBackupObjectStatusApiInfo(ctx context.Context, rc client.Cl
 }
 
 func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger, b *backupsv1alpha1.ClickHouseBackup) error {
-	if b.Status.Phase == "Started" {
+	if b.Status.Phase == PhaseStarted {
 		if _, err := clickhouse.CreateBackup(ctx, b); err != nil {
-			b.Status.Phase = "CreateFailed"
+			b.Status.Phase = PhaseCreateFailed
 			b.Status.Error = err.Error()
 			if err := rc.Status().Update(ctx, b); err != nil {
 				return err
@@ -95,7 +97,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 			return err
 		}
 
-		b.Status.Phase = "Creating"
+		b.Status.Phase = PhaseCreating
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed update clickhouse backup object: %w", err)
 		}
@@ -103,7 +105,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 		l.V(4).Info("started backup creation")
 	}
 
-	if b.Status.Phase == "Creating" {
+	if b.Status.Phase == PhaseCreating {
 		l.V(4).Info("checking backup creation")
 
 		var bo backoff.BackOff
@@ -114,7 +116,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 
 		if bo, ok := bo.(*backoff.ExponentialBackOff); ok {
 			if time.Since(b.CreationTimestamp.Time) > bo.MaxElapsedTime {
-				b.Status.Phase = "CreateFailed"
+				b.Status.Phase = PhaseCreateFailed
 				b.Status.Error = "backup creation timed out"
 
 				return rc.Status().Update(ctx, b)
@@ -136,7 +138,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 
 				switch last.Status {
 				case "error":
-					b.Status.Phase = "CreateFailed"
+					b.Status.Phase = PhaseCreateFailed
 					b.Status.Error = last.Error
 					if err := rc.Status().Update(ctx, b); err != nil {
 						return backoff.Permanent(err)
@@ -155,7 +157,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 		}
 
 		if err := backoff.Retry(op, backoff.WithContext(bo, ctx)); err != nil {
-			b.Status.Phase = "CreateFailed"
+			b.Status.Phase = PhaseCreateFailed
 			b.Status.Error = err.Error()
 		}
 	}
@@ -166,7 +168,7 @@ func createClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger, b *backupsv1alpha1.ClickHouseBackup) error {
 	if b.Status.Phase == "Created" {
 		if _, err := clickhouse.UploadBackup(ctx, b); err != nil {
-			b.Status.Phase = "UploadFailed"
+			b.Status.Phase = PhaseUploadFailed
 			b.Status.Error = err.Error()
 			if err := rc.Status().Update(ctx, b); err != nil {
 				return err
@@ -175,7 +177,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 			return err
 		}
 
-		b.Status.Phase = "Uploading"
+		b.Status.Phase = PhaseUploading
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed update clickhouse backup object: %w", err)
 		}
@@ -183,7 +185,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 		l.V(4).Info("started backup uploading")
 	}
 
-	if b.Status.Phase == "Uploading" {
+	if b.Status.Phase == PhaseUploading {
 		l.V(4).Info("checking backup uploading")
 
 		var bo backoff.BackOff
@@ -194,7 +196,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 
 		if bo, ok := bo.(*backoff.ExponentialBackOff); ok {
 			if time.Since(b.CreationTimestamp.Time) > bo.MaxElapsedTime {
-				b.Status.Phase = "UploadFailed"
+				b.Status.Phase = PhaseUploadFailed
 				b.Status.Error = "backup creation timed out"
 
 				return rc.Status().Update(ctx, b)
@@ -216,7 +218,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 
 				switch last.Status {
 				case "error":
-					b.Status.Phase = "UploadFailed"
+					b.Status.Phase = PhaseUploadFailed
 					b.Status.Error = last.Error
 					if err := rc.Status().Update(ctx, b); err != nil {
 						return backoff.Permanent(err)
@@ -224,7 +226,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 
 					return backoff.Permanent(errors.New("clickhouse backup uploading failed"))
 				case "success":
-					b.Status.Phase = "Completed"
+					b.Status.Phase = PhaseCompleted
 					return rc.Status().Update(ctx, b)
 				default:
 					return fmt.Errorf("clickhouse backup uploading operation is %q status long time", last.Status)
@@ -235,7 +237,7 @@ func uploadClickHouseBackup(ctx context.Context, rc client.Client, l logr.Logger
 		}
 
 		if err := backoff.Retry(op, backoff.WithContext(bo, ctx)); err != nil {
-			b.Status.Phase = "UploadFailed"
+			b.Status.Phase = PhaseUploadFailed
 			b.Status.Error = err.Error()
 		}
 	}

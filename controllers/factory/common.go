@@ -15,6 +15,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	PhaseStarted      = "Started"
+	PhaseFailed       = "Failed"
+	PhaseCompleted    = "Completed"
+	PhaseCreating     = "Creating"
+	PhaseCreateFailed = "CreateFailed"
+	PhaseUploading    = "Uploading"
+	PhaseUploadFailed = "UploadFailed"
+)
+
 func ScheduleTask(c *cron.Cron, l logr.Logger, schedule string, id int, f func()) (cron.EntryID, error) {
 	if id != 0 {
 		eId := cron.EntryID(id)

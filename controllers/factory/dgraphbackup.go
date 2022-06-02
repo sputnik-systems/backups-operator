@@ -17,18 +17,18 @@ func ProccessDgraphBackupObject(ctx context.Context, rc client.Client, b *backup
 			return fmt.Errorf("failed to add finalizer: %w", err)
 		}
 
-		b.Status.Phase = "Started"
+		b.Status.Phase = PhaseStarted
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed update status: %w", err)
 		}
 	}
 
-	if b.Status.Phase == "Started" {
+	if b.Status.Phase == PhaseStarted {
 		if err := createDgraphBackup(ctx, rc, b); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
 
-		b.Status.Phase = "Completed"
+		b.Status.Phase = PhaseCompleted
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed update status: %w", err)
 		}
@@ -67,7 +67,7 @@ func createDgraphBackup(ctx context.Context, rc client.Client, b *backupsv1alpha
 
 	out, err := dgraph.Export(ctx, rc, &b.Spec, creds)
 	if err != nil {
-		b.Status.Phase = "Failed"
+		b.Status.Phase = PhaseFailed
 		if err := rc.Status().Update(ctx, b); err != nil {
 			return fmt.Errorf("failed to update dgraph backup object status: %w", err)
 		}
