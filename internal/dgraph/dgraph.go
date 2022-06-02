@@ -28,26 +28,20 @@ type ExportOutput struct {
 
 func Export(ctx context.Context, rc client.Client, bs *backupsv1alpha1.DgraphBackupSpec, creds map[string]string) (*ExportOutput, error) {
 	type ExportInput struct {
-		Format       graphql.String  `json:"format"`
-		Namespace    graphql.Int     `json:"namespace"`
-		Destination  graphql.String  `json:"destination"`
-		AccessKey    graphql.String  `json:"accessKey"`
-		SecretKey    graphql.String  `json:"secretKey"`
-		SessionToken graphql.String  `json:"sessionToken"`
-		Anonymous    graphql.Boolean `json:"anonymous"`
+		Format      graphql.String `json:"format"`
+		Destination graphql.String `json:"destination"`
+		AccessKey   graphql.String `json:"accessKey"`
+		SecretKey   graphql.String `json:"secretKey"`
 	}
 
 	input := ExportInput{
 		Format:      graphql.String(bs.Format),
-		Namespace:   graphql.Int(bs.Namespace),
 		Destination: graphql.String(bs.Destination),
-		Anonymous:   graphql.Boolean(bs.Anonymous),
 	}
 
-	id, secret, token := parseCredentials(creds)
+	id, secret, _ := parseCredentials(creds)
 	input.AccessKey = graphql.String(id)
 	input.SecretKey = graphql.String(secret)
-	input.SessionToken = graphql.String(token)
 
 	gqlVars := map[string]interface{}{
 		"input": input,
